@@ -9,11 +9,11 @@
  *  modification, are permitted provided that the following conditions
  *  are met:
  *
- *   1. Redistributions of source code must retain the above 
+ *   1. Redistributions of source code must retain the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer.
  *
- *   2. Redistributions in binary form must reproduce the above 
+ *   2. Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials provided
  *      with the distribution.
@@ -32,7 +32,7 @@
  *  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
  *  OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- *  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+ *  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  *  ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  *
@@ -51,25 +51,25 @@
 namespace laser_filters{
 
 /** \brief A class to provide median filtering of laser scans in time*/
-class LowerResolutionFilter : public filters::FilterBase<sensor_msgs::LaserScan> 
+class LowerResolutionFilter : public filters::FilterBase<sensor_msgs::LaserScan>
 {
+
   public:
-    int reduce_factor_;
-
-    ~LowerResolutionFilter(){}
-
-    /** \brief Configure filter loading parameter to reduce_factor_
-     */
+    float reduce_factor_;
     bool configure()
     {
-      reduce_factor_ = 1;
-      if(!getParam("reduce_factor", reduce_factor_)){
+      reduce_factor_ = 1.0;
+      double temp_replacement_value = std::numeric_limits<double>::quiet_NaN();
+      if(!getParam("reduce_factor", temp_replacement_value)){
         ROS_ERROR("Cannot configure LowerResolutionFilter: Didn't find 'reduce_factor' paramerer.");
         return false;
       }
+      reduce_factor_= static_cast<float>(temp_replacement_value);
       ROS_INFO("CONFIGURED");
       return true;
     }
+
+    virtual ~LowerResolutionFilter(){}
 
     /** \brief Update the filter and get the response
      * \param scan_in The new scan to filter
@@ -77,19 +77,44 @@ class LowerResolutionFilter : public filters::FilterBase<sensor_msgs::LaserScan>
      */
     bool update(const sensor_msgs::LaserScan& scan_in, sensor_msgs::LaserScan& scan_out)
     {
+      //int reduce_factor=10
+
       ROS_INFO("Updating");
-      if (!this->configured_) 
+      if (!this->configured_)
       {
         ROS_ERROR("LaserArrayFilter not configured");
         return false;
       }
 
+      ROS_INFO("Updating2");
       scan_out = scan_in;
+
+      int size_array=std::ceil( (scan_in.angle_max - scan_in.angle_min) / scan_in.angle_increment );
+      int size_new_array=size_array;
+      while (size_new_array%(int)reduce_factor_!=0) {
+        size_new_array=size_new_array-1;
+      }
+      scan_out.angle_increment=(scan_out.angle_increment*reduce_factor_);
+
+      scan_out.ranges.resize(0);
+      scan_out.intensities.resize(0);
+      int j = 0;
+      for (int i = 0; i < size_array; i += reduce_factor_) {
+        scan_out.ranges.push_back(scan_in.ranges[i]);
+        scan_out.intensities.push_back(scan_in.intensities[i]);
+        ++j;
+      }
+
+//      scan_out.ranges.resize(size_new_array);
+//      scan_out.ranges = ranges_out;
+
+//      scan_out.intensities.resize(size_new_array);
+//      scan_out.intensities = intensities_out;
 //
 //      int original_length = (scan_in.angle_max - scan_in.angle_min + scan_in.angle_increment) / scan_in.angle_increment;
 //      int reduced_length = std::ceil( original_length / reduce_factor_);
 //
-//      // as we round up when defining reduced length, we have to take in count the last element of the array 
+//      // as we round up when defining reduced length, we have to take in count the last element of the array
 //      // if the reduce factor is divisible by original length, we pick the nth last element (n=reduce_factor)
 //      // else, nth last element will be defined by the mod operation
 //      int mod_angles = original_length % reduce_factor_;
@@ -97,16 +122,16 @@ class LowerResolutionFilter : public filters::FilterBase<sensor_msgs::LaserScan>
 //      int last_element;
 //      if(mod_angles != 0) {
 //        angle_max_out = scan_in.angle_max - scan_in.angle_increment*(mod_angles - 1);
-//        last_element = original_length-mod_angles+1; 
-//      } 
+//        last_element = original_length-mod_angles+1;
+//      }
 //      else {
-//        angle_max_out = scan_in.angle_max - scan_in.angle_increment*(reduce_factor_ - 1); 
+//        angle_max_out = scan_in.angle_max - scan_in.angle_increment*(reduce_factor_ - 1);
 //        last_element = original_length-reduce_factor_+1;
 //      }
 //
 //
 //      float angle_inc_out = scan_in.angle_increment * reduce_factor_;
-//      
+//
 //      std::vector<float> ranges_out;
 //      std::vector<float> intensities_out;
 //
@@ -121,17 +146,17 @@ class LowerResolutionFilter : public filters::FilterBase<sensor_msgs::LaserScan>
 //
 //      scan_out.ranges.resize(reduced_length);
 //      scan_out.ranges = ranges_out;
-//      
+//
 //      scan_out.intensities.resize(reduced_length);
 //      scan_out.intensities = intensities_out;
 //
 //      scan_out.angle_increment = angle_inc_out;
 //
-      ROS_INFO("Filtered out %d points from the laser scan", 0);
+      ROS_INFO("Filtered out %f points from the laser scan", reduce_factor_);
 
       return true;
     }
-    
+
 };
 };
 #endif

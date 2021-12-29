@@ -2,4 +2,4 @@ scan_filter_chain:
 - name: lower_resolution_filter
   type: laser_filters/LowerResolutionFilter
   params:
-    reduce_factor: 2
+    reduce_factor: 10.0
